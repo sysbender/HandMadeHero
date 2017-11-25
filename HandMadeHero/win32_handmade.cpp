@@ -6,6 +6,7 @@
 #define local_persist static
 
 
+
 typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
@@ -23,6 +24,44 @@ global_variable BITMAPINFO BitmapInfo;
 global_variable void * BitmapMemory;
 global_variable int BitmapWidth ;
 global_variable int BitmapHeight ;
+global_variable int BytesPerPixel = 4;
+//
+internal void 
+RenderWeirdGradient( int XOffset, int YOffset)
+{
+
+	int Width = BitmapWidth;
+	int Height = BitmapHeight;
+	int Pitch = Width * BytesPerPixel;// different between this row and next row
+	// casting void* to different size types to make pointer arithmetic simpler for bitmap access
+	uint8 * Row = (uint8*)BitmapMemory;
+
+	for (int Y = 0; Y < BitmapHeight; ++Y)
+	{
+		uint8 *Pixel = (uint8 *)Row;
+		for (int X = 0; X < BitmapWidth; ++X)
+		{
+			/*                0B 1G 2R  3
+			pixel in memory : 00 00 00 00
+			Little endian architecture,
+			in register     : xx BB GG RR
+			*/
+			*Pixel = (uint8)(X + XOffset);
+			++Pixel;
+
+			*Pixel = (uint8)(Y + YOffset);
+			++Pixel;
+
+
+			*Pixel = 0;
+			++Pixel;
+
+			*Pixel = 0;
+			++Pixel;
+		}
+		Row += Pitch;
+	}
+}
 
 // device independant Bitmap
 internal void 
@@ -51,43 +90,14 @@ Win32ResizeDIBSection(int Width, int Height)
 	// note : thank you to Chris Hecker of Spy Party fame
 	// for clarify the deal with StretchDIBits and BitBlt! 
 	// No more DC for us
-	int BytesPerPixel = 4;
+
 	int BitmapMemorySize = (BitmapWidth * BitmapHeight) * BytesPerPixel;
 	BitmapMemory = VirtualAlloc(0, //address
 		BitmapMemorySize,  //size
 		MEM_COMMIT, // MEM_RESERVE
 		PAGE_READWRITE);	//memory protection
 
-	int Pitch = Width * BytesPerPixel;// different between this row and next row
-	// casting void* to different size types to make pointer arithmetic simpler for bitmap access
-	uint8 * Row = (uint8* )BitmapMemory;
-
-	for (int Y = 0; Y < BitmapHeight; ++Y)
-	{ 
-		uint8 *Pixel = (uint8 *)Row;
-		for (int X = 0; X < BitmapWidth; ++X)
-		{
-			/*                0B 1G 2R  3
-			pixel in memory : 00 00 00 00
-			Little endian architecture, 
-			in register     : xx BB GG RR
-			*/
-			*Pixel = (uint8 )X;
-			++Pixel;
-
-			*Pixel = (uint8) Y;
-			++Pixel;
-
-
-			*Pixel = (uint8)(X+Y);
-			++Pixel;
-
-			*Pixel = 0;
-			++Pixel;
-		}
-		Row += Pitch;
-	}
-
+	RenderWeirdGradient(0, 0);
 }
 internal void 
 Win32UpdateWindow(HDC DeviceContext,RECT *WindowRect, int X, int Y, int Width, int Height)
