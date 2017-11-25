@@ -97,16 +97,16 @@ Win32ResizeDIBSection(int Width, int Height)
 		MEM_COMMIT, // MEM_RESERVE
 		PAGE_READWRITE);	//memory protection
 
-	RenderWeirdGradient(0, 0);
+	// todo : clear to black
 }
 internal void 
-Win32UpdateWindow(HDC DeviceContext,RECT *WindowRect, int X, int Y, int Width, int Height)
+Win32UpdateWindow(HDC DeviceContext,RECT *ClientRect, int X, int Y, int Width, int Height)
 {
 	/*
 	
 	*/
-	int WindowWidth = WindowRect->right - WindowRect->left;
-	int WindowHeight = WindowRect->bottom - WindowRect->top;
+	int WindowWidth = ClientRect->right - ClientRect->left;
+	int WindowHeight = ClientRect->bottom - ClientRect->top;
 
 	StretchDIBits(DeviceContext,
 		0,0,BitmapWidth, BitmapHeight, //X, Y, Width, Height, // destination
@@ -236,7 +236,7 @@ typedef struct tagWNDCLASS { // tagWNDCLASS is not needed
 		 
 	if (RegisterClass(&WindowsClass))
 		{
-			HWND WindowHandle =   CreateWindowEx(
+			HWND Window =   CreateWindowEx(
 				0 ,//     dwExStyle,
 				WindowsClass.lpszClassName, //   lpClassName,
 				"HandMade Hero",//   lpWindowName,
@@ -250,28 +250,38 @@ typedef struct tagWNDCLASS { // tagWNDCLASS is not needed
 				Instance, // hInstance,
 				0//    lpParam
 				);
-			if (WindowHandle)
+			if (Window)
 			{
+				int XOffset = 0;
+				int YOffset = 0;
 				Running = true;
 
 
 				while (Running){
-					MSG Message;
-					BOOL MessageResult = GetMessage(&Message,
-						0,
-						0,// wMsgFilterMin,
-						0 //wMsgFilterMax
-						);
 
-					if (MessageResult > 0)
+					MSG Message;
+					while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
 					{
+						if (Message.message == WM_QUIT)
+						{
+							Running = false;
+						}
 						TranslateMessage(&Message);
 						DispatchMessage(&Message);
 					}
-					else
-					{
-						break;
-					}
+	
+					RenderWeirdGradient(XOffset, YOffset);
+
+					HDC DeviceContext = GetDC(Window);
+					RECT ClientRect;
+					GetClientRect(Window, &ClientRect);
+					int WindowWidth = ClientRect.right - ClientRect.left;
+					int WindowHeight = ClientRect.bottom - ClientRect.top;
+
+					Win32UpdateWindow(DeviceContext, &ClientRect, 0, 0, WindowWidth, WindowHeight);
+					ReleaseDC(Window, DeviceContext);
+					++XOffset;
+
 
 
 				}
