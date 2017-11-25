@@ -1,5 +1,11 @@
 #include <windows.h>
 
+#define internal static			// internal function
+#define global_variable static
+#define local_persist static
+
+// todo : global
+global_variable bool Running ;   // static = 0 init
 //
 LRESULT CALLBACK MainWindowCallBack(
    HWND   Window,
@@ -16,10 +22,14 @@ LRESULT CALLBACK MainWindowCallBack(
 	} break;
 	case WM_DESTROY:
 	{
-		OutputDebugStringA("WM_DESTROY");
+		Running = false;  // todo : error
+		//OutputDebugStringA("WM_DESTROY");
 	} break;
 	case WM_CLOSE:
 	{
+		Running = false; // todo: message to user
+		//PostQuitMessage(0);  // quit window
+		//DestroyWindow(Window);
 		OutputDebugStringA("WM_CLOSE");
 	} break;
 	case WM_ACTIVATEAPP:
@@ -34,7 +44,7 @@ LRESULT CALLBACK MainWindowCallBack(
 		int Y = Paint.rcPaint.top;
 		int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
 		int Width = Paint.rcPaint.right - Paint.rcPaint.left;
-		static DWORD Operation = WHITENESS;
+		local_persist DWORD Operation = WHITENESS;
 		PatBlt(DeviceContext, X, Y, Width, Height, Operation);
 		Operation = (Operation == WHITENESS ? BLACKNESS : WHITENESS);
 
@@ -116,14 +126,17 @@ typedef struct tagWNDCLASS { // tagWNDCLASS is not needed
 				);
 			if (WindowHandle)
 			{
-				MSG Message;
+				Running = true;
 
-				for (;;){
+
+				while (Running){
+					MSG Message;
 					BOOL MessageResult = GetMessage(&Message,
 						0,
 						0,// wMsgFilterMin,
 						0 //wMsgFilterMax
 						);
+
 					if (MessageResult > 0)
 					{
 						TranslateMessage(&Message);
