@@ -1,37 +1,46 @@
 #include <windows.h>
 
+#include <stdint.h>
 #define internal static			// internal function
 #define global_variable static
 #define local_persist static
+
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
+
+typedef int8_t int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
 
 // todo : global
 global_variable bool Running ;   // static = 0 init
 global_variable BITMAPINFO BitmapInfo;
 global_variable void * BitmapMemory;
-global_variable HBITMAP BitmapHandle;
-global_variable HDC BitmapDeviceContext;
+global_variable int BitmapWidth ;
+global_variable int BitmapHeight ;
+
 // device independant Bitmap
 internal void 
 Win32ResizeDIBSection(int Width, int Height)
 {
 	// todo : Bulletproof this.
 	// maybe dont free first , free after, then free after if that fails
-
-	// free out DIBSection
-	if (BitmapHandle)
-	{
-		DeleteObject(BitmapHandle); // if we have bitmapHandle, delete it
+	// making sure we free any allocated memory before we resize , using virtual free
+	if (BitmapMemory){
+		VirtualFree(BitmapMemory, 0, MEM_RELEASE);  // MEM_RELEASE|MEM_DECOMMIT
 	}
-	if (! BitmapDeviceContext)
-	{ 
-		// todo : should we create this 
-		BitmapDeviceContext = CreateCompatibleDC(0); //
-	}
+	BitmapWidth = Width;
+	BitmapHeight = Height;
 	BitmapInfo.bmiHeader.biSize = sizeof(BitmapInfo.bmiHeader);
-	BitmapInfo.bmiHeader.biWidth = Width;
-	BitmapInfo.bmiHeader.biHeight = Height;
+	BitmapInfo.bmiHeader.biWidth = BitmapWidth;
+	BitmapInfo.bmiHeader.biHeight = - BitmapHeight; // negative number make windo framebuffer use a top-down coordinate system
 	BitmapInfo.bmiHeader.biPlanes = 1;
-	BitmapInfo.bmiHeader.biBitCount = 32;
+	BitmapInfo.bmiHeader.biBitCount = 32;  // 24bit needed ,for allgning on boundary
 	BitmapInfo.bmiHeader.biCompression = BI_RGB;
 	//BitmapInfo.bmiHeader.biSizeImage = 0;
 	//BitmapInfo.bmiHeader.biXPelsPerMeter = 0;
@@ -39,22 +48,59 @@ Win32ResizeDIBSection(int Width, int Height)
 	//BitmapInfo.bmiHeader.biClrUsed = 0;
 	//BitmapInfo.bmiHeader.biClrImportant = 0;
 
+	// note : thank you to Chris Hecker of Spy Party fame
+	// for clarify the deal with StretchDIBits and BitBlt! 
+	// No more DC for us
+	int BytesPerPixel = 4;
+	int BitmapMemorySize = (BitmapWidth * BitmapHeight) * BytesPerPixel;
+	BitmapMemory = VirtualAlloc(0, //address
+		BitmapMemorySize,  //size
+		MEM_COMMIT, // MEM_RESERVE
+		PAGE_READWRITE);	//memory protection
 
-	//HBITMAP - bitmap handle;
+	int Pitch = Width * BytesPerPixel;// different between this row and next row
+	// casting void* to different size types to make pointer arithmetic simpler for bitmap access
+	uint8 * Row = (uint8* )BitmapMemory;
 
-	BitmapHandle = CreateDIBSection(
-		BitmapDeviceContext, &BitmapInfo,
-		DIB_RGB_COLORS, 
-		&BitmapMemory, 
-		0,0		);
+	for (int Y = 0; Y < BitmapHeight; ++Y)
+	{ 
+		uint8 *Pixel = (uint8 *)Row;
+		for (int X = 0; X < BitmapWidth; ++X)
+		{
+			/*                0B 1G 2R  3
+			pixel in memory : 00 00 00 00
+			Little endian architecture, 
+			in register     : xx BB GG RR
+			*/
+			*Pixel = (uint8 )X;
+			++Pixel;
+
+			*Pixel = (uint8) Y;
+			++Pixel;
+
+
+			*Pixel = (uint8)(X+Y);
+			++Pixel;
+
+			*Pixel = 0;
+			++Pixel;
+		}
+		Row += Pitch;
+	}
 
 }
 internal void 
-Win32UpdateWindow(HDC DeviceContext, int X, int Y, int Width, int Height)
+Win32UpdateWindow(HDC DeviceContext,RECT *WindowRect, int X, int Y, int Width, int Height)
 {
+	/*
+	
+	*/
+	int WindowWidth = WindowRect->right - WindowRect->left;
+	int WindowHeight = WindowRect->bottom - WindowRect->top;
+
 	StretchDIBits(DeviceContext,
-		X, Y, Width, Height, // destination
-		X, Y, Width, Height, // source
+		0,0,BitmapWidth, BitmapHeight, //X, Y, Width, Height, // destination
+		0,0,WindowWidth, WindowHeight, //X, Y, Width, Height, // source
 		BitmapMemory, &BitmapInfo,
 		DIB_RGB_COLORS, //DIB_PAL_COLORS  16 colors
 		SRCCOPY // raster operation code : SRCCOPY, SRCAND
@@ -108,7 +154,10 @@ LRESULT CALLBACK Win32MainWindowCallBack(
 		int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
 		int Width = Paint.rcPaint.right - Paint.rcPaint.left;
 
-		Win32UpdateWindow(DeviceContext, X, Y, Width, Height);
+		RECT ClientRect;
+		GetClientRect(Window, &ClientRect);
+		Win32UpdateWindow(DeviceContext, &ClientRect,  X, Y, Width, Height);
+
 
 
 		//local_persist DWORD Operation = WHITENESS;
