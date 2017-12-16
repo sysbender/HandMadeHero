@@ -61,6 +61,45 @@ Win32GetWindowDimension(HWND Window)
 }
 
 
+// ------------------dynamic load 
+// copy from XINPUT.h
+// typedef a function
+typedef DWORD WINAPI x_input_get_state
+(
+_In_  DWORD         dwUserIndex,  // Index of the gamer associated with the device
+_Out_ XINPUT_STATE* pState        // Receives the current state
+);
+
+typedef DWORD WINAPI x_input_set_state
+(
+_In_ DWORD             dwUserIndex,  // Index of the gamer associated with the device
+_In_ XINPUT_VIBRATION* pVibration    // The vibration information to send to the controller
+);
+//declare a function pointer
+global_variable x_input_get_state *XInputGetState_;
+global_variable x_input_set_state *XInputSetState_;
+
+// avoid conflict, two clever
+#define XInputGetState XInputGetState_
+#define XInputSetState XInputSetState_
+
+
+/*
+DWORD WINAPI XInputGetState
+(
+_In_  DWORD         dwUserIndex,  // Index of the gamer associated with the device
+_Out_ XINPUT_STATE* pState        // Receives the current state
+);
+
+DWORD WINAPI XInputSetState
+(
+_In_ DWORD             dwUserIndex,  // Index of the gamer associated with the device
+_In_ XINPUT_VIBRATION* pVibration    // The vibration information to send to the controller
+);
+*
+*/
+
+
 
 
 internal void
