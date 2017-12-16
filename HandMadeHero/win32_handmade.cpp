@@ -48,6 +48,7 @@ struct win32_window_dimension
 
 };
 
+internal
 win32_window_dimension
 Win32GetWindowDimension(HWND Window)
 {
@@ -63,6 +64,9 @@ Win32GetWindowDimension(HWND Window)
 
 // ------------------dynamic load 
 // copy from XINPUT.h
+
+
+/*
 // typedef a function
 typedef DWORD WINAPI x_input_get_state
 (
@@ -75,29 +79,31 @@ typedef DWORD WINAPI x_input_set_state
 _In_ DWORD             dwUserIndex,  // Index of the gamer associated with the device
 _In_ XINPUT_VIBRATION* pVibration    // The vibration information to send to the controller
 );
+*/
+
+// define function prototype once
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+// define a type of that
+typedef X_INPUT_GET_STATE(x_input_get_state);
+typedef X_INPUT_SET_STATE(x_input_set_state);
+
+X_INPUT_GET_STATE(XInputGetStateStub)
+{
+	return(0);
+}
+X_INPUT_SET_STATE(XInputSetStateStub)
+{
+	return(0);
+}
+
 //declare a function pointer
-global_variable x_input_get_state *XInputGetState_;
-global_variable x_input_set_state *XInputSetState_;
+global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
+global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 
 // avoid conflict, two clever
 #define XInputGetState XInputGetState_
 #define XInputSetState XInputSetState_
-
-
-/*
-DWORD WINAPI XInputGetState
-(
-_In_  DWORD         dwUserIndex,  // Index of the gamer associated with the device
-_Out_ XINPUT_STATE* pState        // Receives the current state
-);
-
-DWORD WINAPI XInputSetState
-(
-_In_ DWORD             dwUserIndex,  // Index of the gamer associated with the device
-_In_ XINPUT_VIBRATION* pVibration    // The vibration information to send to the controller
-);
-*
-*/
 
 
 
