@@ -19,6 +19,51 @@ namespace
 	typedef int16_t int16;
 	typedef int32_t int32;
 	typedef int64_t int64;
+
+
+	// ------------------dynamic load 
+	// copy from XINPUT.h
+
+
+	/*
+	// typedef a function
+	typedef DWORD WINAPI x_input_get_state
+	(
+	_In_  DWORD         dwUserIndex,  // Index of the gamer associated with the device
+	_Out_ XINPUT_STATE* pState        // Receives the current state
+	);
+
+	typedef DWORD WINAPI x_input_set_state
+	(
+	_In_ DWORD             dwUserIndex,  // Index of the gamer associated with the device
+	_In_ XINPUT_VIBRATION* pVibration    // The vibration information to send to the controller
+	);
+	*/
+
+	// define function prototype once
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+	// define a type of that
+	typedef X_INPUT_GET_STATE(x_input_get_state);
+	typedef X_INPUT_SET_STATE(x_input_set_state);
+
+	X_INPUT_GET_STATE(XInputGetStateStub)
+	{
+		return(0);
+	}
+	X_INPUT_SET_STATE(XInputSetStateStub)
+	{
+		return(0);
+	}
+
+	//declare a function pointer
+	global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
+	global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
+
+	// avoid conflict, two clever
+#define XInputGetState XInputGetState_
+#define XInputSetState XInputSetState_
+
 }
 
 
@@ -62,49 +107,17 @@ Win32GetWindowDimension(HWND Window)
 }
 
 
-// ------------------dynamic load 
-// copy from XINPUT.h
 
-
-/*
-// typedef a function
-typedef DWORD WINAPI x_input_get_state
-(
-_In_  DWORD         dwUserIndex,  // Index of the gamer associated with the device
-_Out_ XINPUT_STATE* pState        // Receives the current state
-);
-
-typedef DWORD WINAPI x_input_set_state
-(
-_In_ DWORD             dwUserIndex,  // Index of the gamer associated with the device
-_In_ XINPUT_VIBRATION* pVibration    // The vibration information to send to the controller
-);
-*/
-
-// define function prototype once
-#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
-#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
-// define a type of that
-typedef X_INPUT_GET_STATE(x_input_get_state);
-typedef X_INPUT_SET_STATE(x_input_set_state);
-
-X_INPUT_GET_STATE(XInputGetStateStub)
+internal void
+Win32LoadXInput(void)
 {
-	return(0);
+	HMODULE XInputLibrary  = LoadLibrary("xinput1_3.dll");
+	if (XInputLibrary)
+	{
+		XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+		XInputSetState = (x_input_set_state *) GetProcAddress(XInputLibrary,"XInputSetState" );
+	}
 }
-X_INPUT_SET_STATE(XInputSetStateStub)
-{
-	return(0);
-}
-
-//declare a function pointer
-global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
-global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
-
-// avoid conflict, two clever
-#define XInputGetState XInputGetState_
-#define XInputSetState XInputSetState_
-
 
 
 
@@ -303,6 +316,9 @@ int       ShowCode
 		MessageBox(0, "This is handmade hero.",  "HandMade Hero", MB_OK|MB_ICONINFORMATION);
 		*/
 
+	// load xinput
+	Win32LoadXInput();
+
 	/*  open a windows --------------*/
 
 	WNDCLASS WindowsClass = {}; // init  all to 0
@@ -398,7 +414,10 @@ int       ShowCode
 
 						int16 StickX = Pad->sThumbLX;
 						int16 StickY = Pad->sThumbLY;
-
+						if (AButton)
+						{
+							YOffset += 2;
+						}
 
 					}
 					else // the controller is not available
@@ -406,7 +425,6 @@ int       ShowCode
 						
 					}
 				}
-				RenderWeirdGradient(GlobalBackBuffer, XOffset, YOffset);
 
 				HDC DeviceContext = GetDC(Window);
 
