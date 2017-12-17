@@ -20,6 +20,8 @@ namespace
 	typedef int32_t int32;
 	typedef int64_t int64;
 
+	typedef int32 bool32;
+
 
 	// ------------------dynamic load 
 	// copy from XINPUT.h
@@ -56,11 +58,11 @@ namespace
 	// use prototype to generate : function definition ; with a different name
 	X_INPUT_GET_STATE(XInputGetStateStub)
 	{
-		return(0);
+		return(ERROR_DEVICE_NOT_CONNECTED);
 	}
 	X_INPUT_SET_STATE(XInputSetStateStub)
 	{
-		return(0);
+		return(ERROR_DEVICE_NOT_CONNECTED);
 	}
 
 	//declare a function pointer
@@ -118,7 +120,12 @@ Win32GetWindowDimension(HWND Window)
 internal void
 Win32LoadXInput(void)
 {
-	HMODULE XInputLibrary  = LoadLibraryA("xinput1_3.dll");
+	HMODULE XInputLibrary  = LoadLibraryA("xinput1_4.dll");
+	if (!XInputLibrary)
+	{
+		XInputLibrary = LoadLibraryA("xinput1_3.dll");
+	}
+	
 	if (XInputLibrary)
 	{
 		XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
@@ -337,6 +344,11 @@ LRESULT CALLBACK Win32MainWindowCallBack(
 			{
 				OutputDebugStringA("some key pressed\n");
 			}
+		}
+		bool AltKeyWasDown = (LParam & (1 <<29) ) != 0;
+		if (VKCode == VK_F4 && AltKeyWasDown)
+		{
+			GlobalRunning = false;
 		}
 	
 	}break;
