@@ -3,6 +3,8 @@
 #include <stdint.h>
 
 #include <Xinput.h>
+#include <dsound.h>
+#include <string>
 #define internal static			// internal function
 #define global_variable static
 #define local_persist static
@@ -22,6 +24,11 @@ namespace
 
 	typedef int32 bool32;
 
+
+	// todo : global
+	// int foo; this can be used extenal like
+	// external int foo;  // you can do that with static, can not be called by name, 
+	global_variable bool GlobalRunning;   // static = 0 init
 
 	// ------------------dynamic load 
 	// copy from XINPUT.h
@@ -73,14 +80,21 @@ namespace
 #define XInputGetState XInputGetState_
 #define XInputSetState XInputSetState_
 
+	/*--------------------------------------------------------------------------------------*/
+
+
+	extern _Check_return_ HRESULT WINAPI DirectSoundCreate(_In_opt_ LPCGUID pcGuidDevice, _Outptr_ LPDIRECTSOUND *ppDS, _Pre_null_ LPUNKNOWN pUnkOuter);
+
+	#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+	typedef DIRECT_SOUND_CREATE(direct_sound_create);
+
+
+
 }
 
 
 
-// todo : global
-// int foo; this can be used extenal like
-// external int foo;  // you can do that with static, can not be called by name, 
-global_variable bool GlobalRunning;   // static = 0 init
+
 
 struct win32_offscreen_buffer
 {
@@ -95,6 +109,101 @@ struct win32_offscreen_buffer
 
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 // create a struct if we want to return multiple values
+
+internal void 
+Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
+{
+	//1.  load library
+	HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
+	if (DSoundLibrary)
+	{
+		//2.  get a DirectSound object - cooperative mode
+		direct_sound_create * DirectSoundCreate = (direct_sound_create *)GetProcAddress(DSoundLibrary, "DirectSoundCreate");
+		
+		LPDIRECTSOUND DirectSound;
+		if (DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0)))
+		{
+			// wave format
+			WAVEFORMATEX WaveFormat ={};
+			WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
+			WaveFormat.nChannels = 2;
+			WaveFormat.wBitsPerSample = 16;
+			WaveFormat.nSamplesPerSec = SamplesPerSecond;
+			WaveFormat.nBlockAlign = WaveFormat.nChannels * WaveFormat.wBitsPerSample / 8;
+			WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
+	
+			WaveFormat.cbSize = 0;
+
+			if (SUCCEEDED(DirectSound->SetCooperativeLevel(Window, DSSCL_PRIORITY)))
+			{
+
+				// set buffer format
+				DSBUFFERDESC BufferDescription = { };
+				BufferDescription.dwSize = sizeof(BufferDescription);
+				BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+				// BufferDescription.dwBufferBytes is zero
+				// create the primary buffer-------------------------------------
+				LPDIRECTSOUNDBUFFER PrimaryBuffer;
+				if (SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &PrimaryBuffer, 0)))
+				{
+					HRESULT error = PrimaryBuffer->SetFormat(&WaveFormat);
+					if (SUCCEEDED(error))
+					{
+						// finally set the format
+						OutputDebugStringA("primary buffer format was set. \n");
+					} else
+					{
+						//log error  - SetFormat
+						OutputDebugStringA(("primary buffer format error: " + std::to_string(error)).c_str() );
+					}
+				} else
+				{
+					//log error - CreateSoundBuffer
+				}
+
+			} else
+			{
+				// log error - SetCooperativeLevel
+			}
+			
+
+			//4. create a second buffer - to write to ---------------------------------
+ 
+			// set buffer format
+			DSBUFFERDESC BufferDescription = {};
+			BufferDescription.dwSize = sizeof(BufferDescription);
+			BufferDescription.dwFlags = 0; 
+			BufferDescription.dwBufferBytes = BufferSize;
+			BufferDescription.lpwfxFormat = &WaveFormat;
+
+			LPDIRECTSOUNDBUFFER SecondaryBuffer;
+			HRESULT error = DirectSound->CreateSoundBuffer(&BufferDescription, &SecondaryBuffer, 0);
+			if (SUCCEEDED(error))
+			{
+				OutputDebugStringA("secondary buffer created successfully. \n");
+			} else
+			{
+				OutputDebugStringA(("primary buffer format error: " + std::to_string(error)).c_str());
+			}
+
+			//5. start it playing
+		} else
+		{
+			// log error - DirectSoundCreate
+		}
+
+
+
+	} else
+	{
+		//log error - load library DirectSound
+	}
+
+
+
+}
+
+
 struct win32_window_dimension
 {
 	int Width;
@@ -387,6 +496,8 @@ LRESULT CALLBACK Win32MainWindowCallBack(
 }
 
 
+
+
 int CALLBACK
 WinMain(
 HINSTANCE Instance,
@@ -461,9 +572,11 @@ int       ShowCode
 		{
 			int XOffset = 0;
 			int YOffset = 0;
+
+			// only after open a window, we can load DirectSound
+			Win32InitDSound(Window, 48000, 48000*sizeof(int16)*2);
+
 			GlobalRunning = true;
-
-
 			while (GlobalRunning){
 
 				MSG Message;
