@@ -111,7 +111,7 @@ Win32GetWindowDimension(HWND Window)
 internal void
 Win32LoadXInput(void)
 {
-	HMODULE XInputLibrary  = LoadLibrary("xinput1_3.dll");
+	HMODULE XInputLibrary  = LoadLibraryA("xinput1_3.dll");
 	if (XInputLibrary)
 	{
 		XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
@@ -122,14 +122,14 @@ Win32LoadXInput(void)
 
 
 internal void
-RenderWeirdGradient(win32_offscreen_buffer Buffer, int XOffset, int YOffset)
+RenderWeirdGradient(win32_offscreen_buffer *Buffer, int XOffset, int YOffset)
 {
 
-	int Width = Buffer.Width;
-	int Height = Buffer.Height;
+	int Width = Buffer->Width;
+	int Height = Buffer->Height;
 
 	// casting void* to different size types to make pointer arithmetic simpler for bitmap access
-	uint8 * Row = (uint8*)Buffer.Memory;
+	uint8 * Row = (uint8*)Buffer->Memory;
 
 	for (int Y = 0; Y < Height; ++Y)
 	{
@@ -162,7 +162,7 @@ RenderWeirdGradient(win32_offscreen_buffer Buffer, int XOffset, int YOffset)
 			*/
 		}
 		//int Pitch = Width * Buffer.BytesPerPixel;// different between this row and next row
-		Row += Buffer.Pitch;
+		Row += Buffer->Pitch;
 	}
 }
 
@@ -223,14 +223,13 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
  * \param Height
  */
 internal void
-Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight, win32_offscreen_buffer Buffer,
-int X, int Y, int Width, int Height)
+Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer, HDC DeviceContext, int WindowWidth, int WindowHeight)
 {
 	//todo (Jason) aspect ratio correction
 	StretchDIBits(DeviceContext,
 		0, 0, WindowWidth, WindowHeight, //X, Y, Width, Height, // source
-		0, 0, Buffer.Width, Buffer.Height, //X, Y, Width, Height, // destination
-		Buffer.Memory, &Buffer.Info,
+		0, 0, Buffer->Width, Buffer->Height, //X, Y, Width, Height, // destination
+		Buffer->Memory, &Buffer->Info,
 		DIB_RGB_COLORS, //DIB_PAL_COLORS  16 colors
 		SRCCOPY // raster operation code : SRCCOPY, SRCAND
 		);
@@ -348,7 +347,7 @@ LRESULT CALLBACK Win32MainWindowCallBack(
 
 		win32_window_dimension Dimension = Win32GetWindowDimension(Window);
 
-		Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, GlobalBackBuffer, X, Y, Dimension.Width, Dimension.Height);
+		Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
 
 
 
@@ -388,7 +387,7 @@ int       ShowCode
 
 	/*  open a windows --------------*/
 
-	WNDCLASS WindowsClass = {}; // init  all to 0
+	WNDCLASSA WindowsClass = {}; // init  all to 0
 	//resize  bitmap
 	//win32_window_dimension Dimension = Win32GetWindowDimension(Window);
 	Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
@@ -496,7 +495,7 @@ int       ShowCode
 				Vibration.wLeftMotorSpeed = 60000;
 				Vibration.wRightMotorSpeed = 60000;
 				XInputSetState_(0, &Vibration );
-				RenderWeirdGradient(GlobalBackBuffer, XOffset, YOffset);
+				RenderWeirdGradient(&GlobalBackBuffer, XOffset, YOffset);
 
 				HDC DeviceContext = GetDC(Window);
 
@@ -506,7 +505,8 @@ int       ShowCode
 				GetClientRect(Window, &ClientRect);
 
 
-				Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, GlobalBackBuffer, 0, 0, Dimension.Width, Dimension.Height);
+				Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, 
+											Dimension.Width, Dimension.Height);
 				// release DC
 				ReleaseDC(Window, DeviceContext);
 				++XOffset;
