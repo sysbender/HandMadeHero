@@ -268,6 +268,73 @@ LRESULT CALLBACK Win32MainWindowCallBack(
 	{
 		OutputDebugStringA("WM_ACTIVATEAPP");
 	} break;
+
+	case WM_SYSKEYDOWN:
+	case WM_SYSKEYUP:
+	case WM_KEYDOWN:
+	case WM_KEYUP:
+	{
+		uint32 VKCode = WParam;
+		bool WasDown = ((LParam &(1 << 30) )!= 0);  // 30th bit 
+		bool IsDown = ((LParam &(1 << 31)) == 0);   // 31st bit
+		if (IsDown != WasDown) // eat repeat
+		{
+			if (VKCode == 'W')
+			{
+				OutputDebugStringA("w\n");
+			}
+			else if (VKCode == 'A')
+			{
+			}
+			else if (VKCode == 'S')
+			{
+			}
+			else if (VKCode == 'D')
+			{
+			}
+			else if (VKCode == 'Q')
+			{
+			}
+			else if (VKCode == 'E')
+			{
+			}
+			else if (VKCode == VK_UP)
+			{
+			}
+			else if (VKCode == VK_DOWN)
+			{
+			}
+			else if (VKCode == VK_LEFT)
+			{
+			}
+			else if (VKCode == VK_RIGHT)
+			{
+			}
+			else if (VKCode == VK_ESCAPE)
+			{
+				OutputDebugStringA("ESCAPE:");
+				if (IsDown)
+				{
+					OutputDebugStringA("IsDown ");
+				}
+				if (WasDown)
+				{
+					OutputDebugStringA("WasDown");
+				}
+				OutputDebugStringA("\n");
+			}
+			else if (VKCode == VK_SPACE)
+			{
+
+			}
+			else
+			{
+				OutputDebugStringA("some key pressed\n");
+			}
+		}
+	
+	}break;
+
 	case WM_PAINT:
 	{
 		PAINTSTRUCT Paint;
